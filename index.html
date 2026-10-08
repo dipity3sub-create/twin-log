@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121211">
+<meta name="description" content="Sleep log for Luca and Leon. Data stays on this phone.">
+<title>Twin Sleep Log</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #121211;
+    --surface: #1a1a19;
+    --surface-2: #262624;
+    --line: #3a3936;
+    --text: #ffffff;
+    --text-2: #c3c2b7;
+    --text-3: #8e8d85;
+    --luca: #3987e5;
+    --leon: #d95926;
+    --danger: #e66767;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: max(12px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    -webkit-tap-highlight-color: transparent;
+  }
+  main { max-width: 640px; margin: 0 auto; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 4px 0 14px; }
+  h1 { font-size: 20px; margin: 0; }
+  #today-date { color: var(--text-2); font-size: 14px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; }
+  .muted { color: var(--text-3); }
+  .small { font-size: 13px; }
+
+  /* Twin cards */
+  .twins { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--c);
+    border-radius: var(--radius);
+    padding: 14px 12px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+    min-width: 0;
+  }
+  .card[data-twin="luca"] { --c: var(--luca); }
+  .card[data-twin="leon"] { --c: var(--leon); }
+  .card .name { font-size: 20px; font-weight: 700; }
+  .card .name::before {
+    content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--c); margin-right: 8px; vertical-align: 1px;
+  }
+  .card .state { color: var(--text-2); font-size: 14px; margin-top: 4px; }
+  .card .timer { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .card .since { color: var(--text-3); font-size: 13px; min-height: 18px; }
+  .card .daytotal { color: var(--text-2); font-size: 13px; margin-top: 2px; }
+  .big-btn {
+    margin-top: 10px;
+    min-height: 64px;
+    border-radius: 14px;
+    font: inherit; font-size: 18px; font-weight: 700;
+    border: 2px solid var(--c);
+    background: var(--c); color: #fff;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .big-btn.end { background: transparent; color: var(--text); }
+  .big-btn:active { transform: scale(0.98); }
+
+  /* Buttons */
+  .btn {
+    font: inherit; font-size: 15px;
+    min-height: 44px; padding: 0 16px;
+    border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface-2); color: var(--text);
+    cursor: pointer; touch-action: manipulation;
+  }
+  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 600; }
+  .btn.danger { color: var(--danger); border-color: var(--danger); background: transparent; }
+  .btn.wide { width: 100%; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* Today's log */
+  .log { list-style: none; margin: 0; padding: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .log li + li { border-top: 1px solid var(--line); }
+  .log button {
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+    width: 100%; padding: 12px 14px; min-height: 56px;
+    background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .log .who { font-weight: 600; }
+  .log .when { color: var(--text-2); font-size: 14px; font-variant-numeric: tabular-nums; }
+  .log .dur { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .log .tag { color: var(--text-3); font-size: 12px; display: block; }
+  .empty { padding: 18px 14px; color: var(--text-3); }
+
+  /* 7-day comparison */
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .legend { display: flex; gap: 16px; font-size: 14px; color: var(--text-2); margin-bottom: 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .day { padding: 8px 0; }
+  .day + .day { border-top: 1px solid var(--line); }
+  .day-label { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+  .bar-row { display: grid; grid-template-columns: 1fr 104px; align-items: center; gap: 10px; margin: 4px 0; }
+  .track { height: 12px; background: var(--surface-2); border-radius: 4px; position: relative; }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 0 4px 4px 0; min-width: 2px; }
+  .bar-val { font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .scale { display: grid; grid-template-columns: 1fr 104px; gap: 10px; font-size: 11px; color: var(--text-3); margin-top: 4px; }
+  .scale div { display: flex; justify-content: space-between; }
+  .avg { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .avg .stat { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--c); border-radius: 12px; padding: 12px; }
+  .avg .stat[data-twin="luca"] { --c: var(--luca); }
+  .avg .stat[data-twin="leon"] { --c: var(--leon); }
+  .avg .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .avg .lbl { font-size: 13px; color: var(--text-2); }
+  .avg .cmp { font-size: 13px; color: var(--text-3); margin-top: 4px; }
+
+  /* Dialog */
+  dialog {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+    width: min(440px, calc(100vw - 32px)); padding: 18px;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.6); }
+  dialog h3 { margin: 0 0 14px; font-size: 18px; }
+  label { display: block; font-size: 14px; color: var(--text-2); margin: 12px 0 6px; }
+  input[type="datetime-local"], select {
+    width: 100%; min-height: 48px; padding: 8px 10px;
+    font: inherit; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .check { display: flex; align-items: center; gap: 10px; margin-top: 12px; color: var(--text); font-size: 15px; }
+  .check input { width: 22px; height: 22px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label {
+    margin: 0; min-height: 48px; display: flex; align-items: center; justify-content: center;
+    border: 2px solid var(--line); border-radius: 10px; color: var(--text); font-weight: 600; cursor: pointer;
+  }
+  .seg input:checked + label { border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
+  .seg .luca { --c: var(--luca); }
+  .seg .leon { --c: var(--leon); }
+  .error { color: var(--danger); font-size: 14px; min-height: 20px; margin-top: 10px; }
+  .dialog-actions { display: flex; gap: 8px; margin-top: 8px; }
+  .dialog-actions .spacer { flex: 1; }
+
+  /* Toast */
+  #toast {
+    position: fixed; left: 16px; right: 16px; bottom: max(16px, env(safe-area-inset-bottom));
+    max-width: 608px; margin: 0 auto;
+    display: flex; align-items: center; gap: 12px;
+    background: var(--text); color: var(--bg);
+    padding: 10px 10px 10px 16px; border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.5);
+    transform: translateY(150%); transition: transform .2s ease;
+  }
+  #toast.show { transform: none; }
+  #toast span { flex: 1; font-size: 15px; }
+  #toast button { font: inherit; font-weight: 700; background: none; border: 0; color: #1d5fb3; min-height: 44px; padding: 0 12px; cursor: pointer; }
+
+  footer { margin-top: 28px; }
+  footer p { font-size: 13px; color: var(--text-3); }
+  @media (max-width: 340px) { .card .timer { font-size: 24px; } .bar-row, .scale { grid-template-columns: 1fr 88px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Twin Sleep Log</h1>
+    <div id="today-date"></div>
+  </header>
+
+  <section class="twins" id="twins"></section>
+
+  <h2>Today's log</h2>
+  <ul class="log" id="log"></ul>
+  <div style="margin-top:10px">
+    <button class="btn wide" id="add-btn" type="button">+ Add a missed sleep</button>
+  </div>
+  <p class="small muted">Tap any entry to change its times or delete it.</p>
+
+  <h2>Last 7 days</h2>
+  <div class="panel">
+    <div class="legend"><span><i class="dot" style="background:var(--luca)"></i>Luca</span><span><i class="dot" style="background:var(--leon)"></i>Leon</span></div>
+    <div id="days"></div>
+    <div class="scale"><div><span>0h</span><span>12h</span><span>24h</span></div><div></div></div>
+  </div>
+  <div class="avg" id="avg"></div>
+  <p class="small muted" id="avg-note"></p>
+
+  <footer>
+    <h2>Backup</h2>
+    <div class="row">
+      <button class="btn" id="export-btn" type="button">Download backup</button>
+      <button class="btn" id="import-btn" type="button">Restore from backup</button>
+      <input type="file" id="import-file" accept=".json,application/json" hidden>
+    </div>
+    <p>Your log is saved only on this phone, in this browser. Clearing Chrome's site data erases it, so download a backup now and then.</p>
+  </footer>
+</main>
+
+<dialog id="edit">
+  <form method="dialog" id="edit-form">
+    <h3 id="edit-title">Edit sleep</h3>
+    <div class="seg">
+      <input type="radio" name="twin" id="tw-luca" value="luca"><label for="tw-luca" class="luca">Luca</label>
+      <input type="radio" name="twin" id="tw-leon" value="leon"><label for="tw-leon" class="leon">Leon</label>
+    </div>
+    <label for="f-start">Fell asleep</label>
+    <input type="datetime-local" id="f-start" required>
+    <label for="f-end">Woke up</label>
+    <input type="datetime-local" id="f-end">
+    <label class="check"><input type="checkbox" id="f-ongoing"> Still asleep</label>
+    <div class="error" id="f-error" role="alert"></div>
+    <div class="dialog-actions">
+      <button class="btn danger" type="button" id="f-delete">Delete</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="f-cancel">Cancel</button>
+      <button class="btn primary" type="submit" id="f-save">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"><span id="toast-msg"></span><button type="button" id="toast-undo">Undo</button></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var TWINS = [
+    { id: 'luca', name: 'Luca' },
+    { id: 'leon', name: 'Leon' }
+  ];
+  var STORE_KEY = 'twin-sleep-log-v1';
+  var HOUR = 3600000, DAY = 24 * HOUR;
+
+  // ---------- Storage ----------
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        var d = JSON.parse(raw);
+        if (d && Array.isArray(d.sleeps)) return d;
+      }
+    } catch (e) { /* fall through to empty log */ }
+    return { version: 1, sleeps: [] };
+  }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
+    catch (e) { alert('Could not save to this phone. Is storage full?'); }
+  }
+  var data = load();
+  // Ask Chrome not to clear our storage when the phone is low on space.
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
+
+  // ---------- Helpers ----------
+  function now() { return Date.now(); }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function twinName(id) { for (var i = 0; i < TWINS.length; i++) if (TWINS[i].id === id) return TWINS[i].name; return id; }
+  function startOfDay(t) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
+  function addDays(dayStart, n) { var d = new Date(dayStart); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime(); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtTime(t) { var d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function fmtDur(ms) {
+    var m = Math.floor(Math.max(0, ms) / 60000);
+    if (m < 1) return '<1m';
+    var h = Math.floor(m / 60); m = m % 60;
+    return h ? h + 'h ' + pad(m) + 'm' : m + 'm';
+  }
+  function fmtDay(dayStart, today) {
+    if (dayStart === today) return 'Today (so far)';
+    if (dayStart === addDays(today, -1)) return 'Yesterday';
+    return new Date(dayStart).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function toInput(t) { var d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function fromInput(s) { if (!s) return null; var t = new Date(s).getTime(); return isNaN(t) ? null : t; }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  function sleepsOf(twin) { return data.sleeps.filter(function (s) { return s.twin === twin; }); }
+  function ongoing(twin) { return data.sleeps.find(function (s) { return s.twin === twin && s.end == null; }) || null; }
+  function lastWake(twin) {
+    var best = null;
+    sleepsOf(twin).forEach(function (s) { if (s.end != null && (best == null || s.end > best)) best = s.end; });
+    return best;
+  }
+  function overlap(s, a, b, t) { var e = s.end == null ? t : s.end; return Math.max(0, Math.min(e, b) - Math.max(s.start, a)); }
+  // Total sleep inside [a, b). Sleeps that cross midnight count toward each day by the part inside it.
+  function dayStats(twin, a, b, t) {
+    var total = 0, count = 0, any = false;
+    sleepsOf(twin).forEach(function (s) {
+      var o = overlap(s, a, b, t);
+      if (o > 0) { total += o; any = true; }
+      if (s.start >= a && s.start < b) count++;
+    });
+    return { total: total, count: count, any: any };
+  }
+
+  // ---------- Undo ----------
+  var undoSnapshot = null, toastTimer = null;
+  function snapshot() { undoSnapshot = JSON.stringify(data.sleeps); }
+  function showToast(msg, canUndo) {
+    document.getElementById('toast-msg').textContent = msg;
+    document.getElementById('toast-undo').hidden = !canUndo;
+    var t = document.getElementById('toast');
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); undoSnapshot = null; }, 8000);
+  }
+  document.getElementById('toast-undo').addEventListener('click', function () {
+    if (undoSnapshot == null) return;
+    data.sleeps = JSON.parse(undoSnapshot);
+    undoSnapshot = null;
+    save(); render();
+    showToast('Undone', false);
+  });
+
+  // ---------- Actions ----------
+  function toggle(twin) {
+    snapshot();
+    var t = now(), cur = ongoing(twin);
+    if (cur) {
+      cur.end = t;
+      showToast(twinName(twin) + ' woke up at ' + fmtTime(t) + ' (slept ' + fmtDur(t - cur.start) + ')', true);
+    } else {
+      data.sleeps.push({ id: uid(), twin: twin, start: t, end: null });
+      showToast(twinName(twin) + ' fell asleep at ' + fmtTime(t), true);
+    }
+    if (navigator.vibrate) navigator.vibrate(30);
+    save(); render();
+  }
+
+  // ---------- Rendering ----------
+  function renderCards(t, today) {
+    var wrap = document.getElementById('twins');
+    wrap.textContent = '';
+    TWINS.forEach(function (tw) {
+      var cur = ongoing(tw.id), woke = lastWake(tw.id);
+      var st = dayStats(tw.id, today, addDays(today, 1), t);
+      var card = el('div', 'card'); card.dataset.twin = tw.id;
+      card.appendChild(el('div', 'name', tw.name));
+      var state = el('div', 'state'), timer = el('div', 'timer'), since = el('div', 'since');
+      if (cur) {
+        state.textContent = 'Asleep for';
+        timer.textContent = fmtDur(t - cur.start);
+        since.textContent = 'since ' + fmtTime(cur.start);
+      } else if (woke != null) {
+        state.textContent = 'Awake for';
+        timer.textContent = fmtDur(t - woke);
+        since.textContent = 'woke at ' + fmtTime(woke);
+      } else {
+        state.textContent = 'Awake';
+        timer.textContent = '–';
+        since.textContent = 'no sleeps logged yet';
+      }
+      card.appendChild(state); card.appendChild(timer); card.appendChild(since);
+      card.appendChild(el('div', 'daytotal', 'Today: ' + fmtDur(st.total) + ' · ' + st.count + (st.count === 1 ? ' sleep' : ' sleeps')));
+      var b = el('button', 'big-btn' + (cur ? ' end' : ''), cur ? 'Sleep end' : 'Sleep start');
+      b.type = 'button';
+      b.setAttribute('aria-label', (cur ? 'Sleep end for ' : 'Sleep start for ') + tw.name);
+      b.addEventListener('click', function () { toggle(tw.id); });
+      card.appendChild(b);
+      wrap.appendChild(card);
+    });
+  }
+
+  function renderLog(t, today) {
+    var tomorrow = addDays(today, 1);
+    var list = document.getElementById('log');
+    list.textContent = '';
+    var items = data.sleeps
+      .filter(function (s) { return overlap(s, today, tomorrow, t) > 0 || (s.end == null) || (s.start >= today && s.start < tomorrow); })
+      .sort(function (a, b) { return b.start - a.start; });
+    if (!items.length) { list.appendChild(el('li', 'empty', 'No sleeps logged today yet.')); return; }
+    items.forEach(function (s) {
+      var li = el('li'), b = el('button'); b.type = 'button';
+      var dot = el('span', 'dot'); dot.style.background = 'var(--' + s.twin + ')';
+      var mid = el('div');
+      mid.appendChild(el('div', 'who', twinName(s.twin)));
+      mid.appendChild(el('div', 'when', fmtTime(s.start) + ' → ' + (s.end == null ? 'now' : fmtTime(s.end))));
+      if (s.start < today) mid.appendChild(el('span', 'tag', 'started yesterday'));
+      var dur = el('div', 'dur', fmtDur((s.end == null ? t : s.end) - s.start));
+      if (s.end == null) dur.appendChild(el('span', 'tag', 'asleep now'));
+      b.appendChild(dot); b.appendChild(mid); b.appendChild(dur);
+      b.addEventListener('click', function () { openEditor(s.id); });
+      li.appendChild(b); list.appendChild(li);
+    });
+  }
+
+  function renderHistory(t, today) {
+    var days = document.getElementById('days');
+    days.textContent = '';
+    for (var i = 0; i < 7; i++) {
+      var a = addDays(today, -i), b = addDays(a, 1);
+      var box = el('div', 'day');
+      box.appendChild(el('div', 'day-label', fmtDay(a, today)));
+      TWINS.forEach(function (tw) {
+        var st = dayStats(tw.id, a, b, t);
+        var row = el('div', 'bar-row');
+        var track = el('div', 'track'), fill = el('div', 'fill');
+        fill.style.background = 'var(--' + tw.id + ')';
+        fill.style.width = Math.min(100, st.total / DAY * 100) + '%';
+        if (!st.total) fill.style.display = 'none';
+        track.appendChild(fill);
+        track.setAttribute('aria-hidden', 'true');
+        var val = el('div', 'bar-val', st.any ? fmtDur(st.total) + ' · ' + st.count : '–');
+        val.setAttribute('aria-label', tw.name + ': ' + (st.any ? fmtDur(st.total) + ', ' + st.count + ' sleeps' : 'nothing logged'));
+        val.title = tw.name;
+        row.appendChild(track); row.appendChild(val);
+        box.appendChild(row);
+      });
+      days.appendChild(box);
+    }
+
+    // 7-day average over the last 7 full days (not today), counting only days with something logged.
+    var avgWrap = document.getElementById('avg');
+    avgWrap.textContent = '';
+    var notes = [];
+    TWINS.forEach(function (tw) {
+      var sum = 0, n = 0, cnt = 0;
+      for (var i = 1; i <= 7; i++) {
+        var a = addDays(today, -i), st = dayStats(tw.id, a, addDays(a, 1), t);
+        if (st.any) { sum += st.total; cnt += st.count; n++; }
+      }
+      var box = el('div', 'stat'); box.dataset.twin = tw.id;
+      box.appendChild(el('div', 'lbl', tw.name + ' · daily average'));
+      box.appendChild(el('div', 'big', n ? fmtDur(sum / n) : '–'));
+      var todaySt = dayStats(tw.id, today, addDays(today, 1), t);
+      box.appendChild(el('div', 'cmp', n
+        ? 'about ' + Math.round(cnt / n) + ' sleeps a day · today so far ' + fmtDur(todaySt.total)
+        : 'not enough days yet'));
+      avgWrap.appendChild(box);
+      notes.push(tw.name + ': ' + n + (n === 1 ? ' day' : ' days'));
+    });
+    document.getElementById('avg-note').textContent =
+      'The average covers the last 7 full days, not counting today. Days with nothing logged are skipped (' + notes.join(', ') + '). Each bar is out of 24 hours; the number after the dot is how many sleeps started that day.';
+  }
+
+  function render() {
+    var t = now(), today = startOfDay(t);
+    document.getElementById('today-date').textContent =
+      new Date(t).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+    renderCards(t, today);
+    renderLog(t, today);
+    renderHistory(t, today);
+  }
+
+  // ---------- Edit / add dialog ----------
+  var dlg = document.getElementById('edit');
+  var fStart = document.getElementById('f-start'), fEnd = document.getElementById('f-end');
+  var fOngoing = document.getElementById('f-ongoing'), fError = document.getElementById('f-error');
+  var editingId = null;
+
+  function syncOngoing() { fEnd.disabled = fOngoing.checked; }
+  fOngoing.addEventListener('change', syncOngoing);
+
+  function openEditor(id) {
+    editingId = id || null;
+    var s = id ? data.sleeps.find(function (x) { return x.id === id; }) : null;
+    var t = now();
+    document.getElementById('edit-title').textContent = s ? 'Edit sleep' : 'Add a missed sleep';
+    document.getElementById('f-delete').hidden = !s;
+    var twin = s ? s.twin : 'luca';
+    document.getElementById('tw-' + twin).checked = true;
+    fStart.value = toInput(s ? s.start : t - HOUR);
+    fEnd.value = toInput(s && s.end != null ? s.end : t);
+    fOngoing.checked = !!(s && s.end == null);
+    fStart.max = fEnd.max = toInput(t);
+    syncOngoing();
+    fError.textContent = '';
+    dlg.showModal();
+  }
+
+  document.getElementById('add-btn').addEventListener('click', function () { openEditor(null); });
+  document.getElementById('f-cancel').addEventListener('click', function () { dlg.close(); });
+  document.getElementById('f-delete').addEventListener('click', function () {
+    if (!editingId) return;
+    snapshot();
+    data.sleeps = data.sleeps.filter(function (x) { return x.id !== editingId; });
+    save(); dlg.close(); render();
+    showToast('Sleep deleted', true);
+  });
+
+  document.getElementById('edit-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var twin = document.querySelector('input[name="twin"]:checked').value;
+    var start = fromInput(fStart.value);
+    var end = fOngoing.checked ? null : fromInput(fEnd.value);
+    var t = now() + 60000; // allow the current minute
+    if (start == null) { fError.textContent = 'Please choose when they fell asleep.'; return; }
+    if (!fOngoing.checked && end == null) { fError.textContent = 'Please choose when they woke up, or tick "Still asleep".'; return; }
+    if (start > t) { fError.textContent = 'The start time is in the future.'; return; }
+    if (end != null && end > t) { fError.textContent = 'The wake-up time is in the future.'; return; }
+    if (end != null && end <= start) { fError.textContent = 'Wake-up must be after falling asleep.'; return; }
+    var clash = data.sleeps.find(function (x) {
+      if (x.id === editingId || x.twin !== twin) return false;
+      var xe = x.end == null ? Infinity : x.end, e = end == null ? Infinity : end;
+      return start < xe && x.start < e;
+    });
+    if (clash) {
+      fError.textContent = 'This overlaps another sleep for ' + twinName(twin) + ' (' + fmtTime(clash.start) + ' → ' + (clash.end == null ? 'now' : fmtTime(clash.end)) + ').';
+      return;
+    }
+    snapshot();
+    if (editingId) {
+      var s = data.sleeps.find(function (x) { return x.id === editingId; });
+      s.twin = twin; s.start = start; s.end = end;
+    } else {
+      data.sleeps.push({ id: uid(), twin: twin, start: start, end: end });
+    }
+    save(); dlg.close(); render();
+    showToast(editingId ? 'Sleep updated' : 'Sleep added', true);
+  });
+
+  // ---------- Backup ----------
+  document.getElementById('export-btn').addEventListener('click', function () {
+    var blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'twin-sleep-backup-' + toInput(now()).slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+  });
+  var importFile = document.getElementById('import-file');
+  document.getElementById('import-btn').addEventListener('click', function () { importFile.click(); });
+  importFile.addEventListener('change', function () {
+    var f = importFile.files && importFile.files[0];
+    if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var d = JSON.parse(r.result);
+        if (!d || !Array.isArray(d.sleeps)) throw new Error('bad');
+        var ok = d.sleeps.every(function (s) { return s && typeof s.start === 'number' && (s.end == null || typeof s.end === 'number') && (s.twin === 'luca' || s.twin === 'leon'); });
+        if (!ok) throw new Error('bad');
+        if (!confirm('Replace the log on this phone with the backup (' + d.sleeps.length + ' sleeps)?')) return;
+        snapshot();
+        data = { version: 1, sleeps: d.sleeps.map(function (s) { return { id: s.id || uid(), twin: s.twin, start: s.start, end: s.end == null ? null : s.end }; }) };
+        save(); render();
+        showToast('Backup restored', true);
+      } catch (e) {
+        alert('That file is not a Twin Sleep Log backup.');
+      }
+      importFile.value = '';
+    };
+    r.readAsText(f);
+  });
+
+  // ---------- Keep timers fresh ----------
+  render();
+  setInterval(function () { if (!dlg.open) render(); }, 15000);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && !dlg.open) render(); });
+  window.addEventListener('storage', function (e) { if (e.key === STORE_KEY) { data = load(); render(); } });
+
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>
