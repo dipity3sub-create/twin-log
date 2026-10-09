@@ -169,6 +169,22 @@
   #toast span { flex: 1; font-size: 15px; }
   #toast button { font: inherit; font-weight: 700; background: none; border: 0; color: #1d5fb3; min-height: 44px; padding: 0 12px; cursor: pointer; }
 
+  /* Sync */
+  .sync-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); margin: -6px 0 12px; }
+  .sync-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+  .sync-pill[data-state="ok"] i { background: #199e70; }
+  .sync-pill[data-state="busy"] i { background: #199e70; opacity: .5; }
+  .sync-pill[data-state="offline"] i { background: #c98500; }
+  .sync-pill[data-state="error"] i { background: var(--danger); }
+  input[type="url"] {
+    width: 100%; min-height: 48px; padding: 8px 10px;
+    font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  .share-box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+  .share-box p { margin: 0 0 10px; color: var(--text-2); font-size: 14px; }
+  .share-box .row { margin-top: 10px; }
+
   footer { margin-top: 28px; }
   footer p { font-size: 13px; color: var(--text-3); }
   @media (max-width: 340px) { .card .timer { font-size: 24px; } .bar-row, .scale { grid-template-columns: 1fr 88px; } }
@@ -180,6 +196,7 @@
     <h1>Twin Sleep Log</h1>
     <div id="today-date"></div>
   </header>
+  <div class="sync-pill" id="sync-pill" data-state="off"><i></i><span id="sync-text">This phone only</span></div>
 
   <section class="twins" id="twins"></section>
 
@@ -200,13 +217,29 @@
   <p class="small muted" id="avg-note"></p>
 
   <footer>
+    <h2>Share with another phone</h2>
+    <div class="share-box" id="share-off">
+      <p>Connect a Google Sheet so two phones see the same log. Paste the web-app address from your Google Sheet here.</p>
+      <input type="url" id="sync-url" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" spellcheck="false">
+      <div class="row"><button class="btn primary" id="connect-btn" type="button">Connect</button></div>
+      <div class="error" id="connect-error" role="alert"></div>
+    </div>
+    <div class="share-box" id="share-on" hidden>
+      <p><strong style="color:var(--text)">Shared log is on.</strong> Every tap is saved to your Google Sheet. Other connected phones see it within about 10 seconds.</p>
+      <p>To add another phone, send it the invite link and open it there in Chrome.</p>
+      <div class="row">
+        <button class="btn primary" id="invite-btn" type="button">Send invite link</button>
+        <button class="btn" id="disconnect-btn" type="button">Disconnect</button>
+      </div>
+    </div>
+
     <h2>Backup</h2>
     <div class="row">
       <button class="btn" id="export-btn" type="button">Download backup</button>
       <button class="btn" id="import-btn" type="button">Restore from backup</button>
       <input type="file" id="import-file" accept=".json,application/json" hidden>
     </div>
-    <p>Your log is saved only on this phone, in this browser. Clearing Chrome's site data erases it, so download a backup now and then.</p>
+    <p>Without a shared log, your entries are saved only on this phone, in this browser. Clearing Chrome's site data erases them, so download a backup now and then.</p>
   </footer>
 </main>
 
@@ -243,30 +276,49 @@
     { id: 'leon', name: 'Leon' }
   ];
   var STORE_KEY = 'twin-sleep-log-v1';
+  var SYNC_KEY = 'twin-sleep-sync-v1';
   var HOUR = 3600000, DAY = 24 * HOUR;
+  var POLL_MS = 10000;
 
   // ---------- Storage ----------
+  // Each sleep: { id, twin, start, end (null while asleep), updated, deleted }.
+  // Deleted sleeps are kept (marked deleted) so the delete reaches other phones.
+  function normalize(s) {
+    return { id: String(s.id), twin: s.twin, start: s.start, end: s.end == null ? null : s.end, updated: s.updated || 0, deleted: !!s.deleted };
+  }
   function load() {
     try {
       var raw = localStorage.getItem(STORE_KEY);
       if (raw) {
         var d = JSON.parse(raw);
-        if (d && Array.isArray(d.sleeps)) return d;
+        if (d && Array.isArray(d.sleeps)) return { version: 2, sleeps: d.sleeps.map(normalize) };
       }
     } catch (e) { /* fall through to empty log */ }
-    return { version: 1, sleeps: [] };
+    return { version: 2, sleeps: [] };
+  }
+  function loadSync() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SYNC_KEY) || 'null');
+      if (s && s.url) return { url: s.url, lastServerTime: s.lastServerTime || 0, dirty: s.dirty || {}, lastOk: s.lastOk || 0 };
+    } catch (e) { /* not connected */ }
+    return { url: '', lastServerTime: 0, dirty: {}, lastOk: 0 };
   }
   function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); }
-    catch (e) { alert('Could not save to this phone. Is storage full?'); }
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      localStorage.setItem(SYNC_KEY, JSON.stringify(sync));
+    } catch (e) { alert('Could not save to this phone. Is storage full?'); }
   }
   var data = load();
+  var sync = loadSync();
   // Ask Chrome not to clear our storage when the phone is low on space.
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {});
 
   // ---------- Helpers ----------
   function now() { return Date.now(); }
-  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function nowSec() { return Math.floor(Date.now() / 1000) * 1000; }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
   function twinName(id) { for (var i = 0; i < TWINS.length; i++) if (TWINS[i].id === id) return TWINS[i].name; return id; }
   function startOfDay(t) { var d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
   function addDays(dayStart, n) { var d = new Date(dayStart); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n).getTime(); }
@@ -274,7 +326,7 @@
   function fmtTime(t) { var d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
   function fmtDur(ms) {
     var m = Math.floor(Math.max(0, ms) / 60000);
-    if (m < 1) return '<1m';
+    if (m < 1) return ms > 0 ? '<1m' : '0m';
     var h = Math.floor(m / 60); m = m % 60;
     return h ? h + 'h ' + pad(m) + 'm' : m + 'm';
   }
@@ -287,8 +339,14 @@
   function fromInput(s) { if (!s) return null; var t = new Date(s).getTime(); return isNaN(t) ? null : t; }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 
-  function sleepsOf(twin) { return data.sleeps.filter(function (s) { return s.twin === twin; }); }
-  function ongoing(twin) { return data.sleeps.find(function (s) { return s.twin === twin && s.end == null; }) || null; }
+  function live() { return data.sleeps.filter(function (s) { return !s.deleted; }); }
+  function byId(id) { return data.sleeps.find(function (s) { return s.id === id; }) || null; }
+  function sleepsOf(twin) { return live().filter(function (s) { return s.twin === twin; }); }
+  function ongoing(twin) {
+    var open = sleepsOf(twin).filter(function (s) { return s.end == null; });
+    open.sort(function (a, b) { return a.start - b.start; });
+    return open[0] || null;
+  }
   function lastWake(twin) {
     var best = null;
     sleepsOf(twin).forEach(function (s) { if (s.end != null && (best == null || s.end > best)) best = s.end; });
@@ -306,38 +364,70 @@
     return { total: total, count: count, any: any };
   }
 
+  // ---------- Recording changes ----------
+  // Every change goes through commit(before): it stamps changed sleeps with the time of
+  // the change and queues them for the shared log. Returns the old copies, for Undo.
+  function sameSleep(a, b) { return a.twin === b.twin && a.start === b.start && a.end === b.end && !!a.deleted === !!b.deleted; }
+  function markChanges(before) {
+    var prev = {}, seen = {}, changed = {}, t = now();
+    before.forEach(function (s) { prev[s.id] = s; });
+    data.sleeps.forEach(function (s) {
+      seen[s.id] = true;
+      var p = prev[s.id];
+      if (!p || !sameSleep(p, s)) { s.updated = Math.max(t, (p && p.updated || 0) + 1); sync.dirty[s.id] = true; changed[s.id] = p || null; }
+    });
+    before.forEach(function (p) {
+      if (!seen[p.id] && !p.deleted) {
+        data.sleeps.push({ id: p.id, twin: p.twin, start: p.start, end: p.end, updated: Math.max(t, p.updated + 1), deleted: true });
+        sync.dirty[p.id] = true; changed[p.id] = p;
+      }
+    });
+    return changed;
+  }
+  function commit(before) {
+    var changed = markChanges(before);
+    save(); render(); syncSoon();
+    return changed;
+  }
+
   // ---------- Undo ----------
-  var undoSnapshot = null, toastTimer = null;
-  function snapshot() { undoSnapshot = JSON.stringify(data.sleeps); }
-  function showToast(msg, canUndo) {
+  var undoChanges = null, toastTimer = null;
+  function showToast(msg, changes) {
+    undoChanges = changes || null;
     document.getElementById('toast-msg').textContent = msg;
-    document.getElementById('toast-undo').hidden = !canUndo;
+    document.getElementById('toast-undo').hidden = !changes;
     var t = document.getElementById('toast');
     t.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { t.classList.remove('show'); undoSnapshot = null; }, 8000);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); undoChanges = null; }, 8000);
   }
   document.getElementById('toast-undo').addEventListener('click', function () {
-    if (undoSnapshot == null) return;
-    data.sleeps = JSON.parse(undoSnapshot);
-    undoSnapshot = null;
-    save(); render();
-    showToast('Undone', false);
+    if (!undoChanges) return;
+    var before = clone(data.sleeps);
+    Object.keys(undoChanges).forEach(function (id) {
+      var old = undoChanges[id], cur = byId(id);
+      if (!cur) return;
+      if (old) { cur.twin = old.twin; cur.start = old.start; cur.end = old.end; cur.deleted = !!old.deleted; }
+      else cur.deleted = true; // it was newly added
+    });
+    undoChanges = null;
+    commit(before);
+    showToast('Undone', null);
   });
 
   // ---------- Actions ----------
   function toggle(twin) {
-    snapshot();
-    var t = now(), cur = ongoing(twin);
+    var before = clone(data.sleeps);
+    var t = nowSec(), cur = ongoing(twin), msg;
     if (cur) {
-      cur.end = t;
-      showToast(twinName(twin) + ' woke up at ' + fmtTime(t) + ' (slept ' + fmtDur(t - cur.start) + ')', true);
+      cur.end = Math.max(t, cur.start + 1000);
+      msg = twinName(twin) + ' woke up at ' + fmtTime(t) + ' (slept ' + fmtDur(t - cur.start) + ')';
     } else {
-      data.sleeps.push({ id: uid(), twin: twin, start: t, end: null });
-      showToast(twinName(twin) + ' fell asleep at ' + fmtTime(t), true);
+      data.sleeps.push({ id: uid(), twin: twin, start: t, end: null, updated: 0, deleted: false });
+      msg = twinName(twin) + ' fell asleep at ' + fmtTime(t);
     }
     if (navigator.vibrate) navigator.vibrate(30);
-    save(); render();
+    showToast(msg, commit(before));
   }
 
   // ---------- Rendering ----------
@@ -378,8 +468,8 @@
     var tomorrow = addDays(today, 1);
     var list = document.getElementById('log');
     list.textContent = '';
-    var items = data.sleeps
-      .filter(function (s) { return overlap(s, today, tomorrow, t) > 0 || (s.end == null) || (s.start >= today && s.start < tomorrow); })
+    var items = live()
+      .filter(function (s) { return overlap(s, today, tomorrow, t) > 0 || s.end == null || (s.start >= today && s.start < tomorrow); })
       .sort(function (a, b) { return b.start - a.start; });
     if (!items.length) { list.appendChild(el('li', 'empty', 'No sleeps logged today yet.')); return; }
     items.forEach(function (s) {
@@ -453,6 +543,7 @@
     renderCards(t, today);
     renderLog(t, today);
     renderHistory(t, today);
+    renderSync();
   }
 
   // ---------- Edit / add dialog ----------
@@ -465,8 +556,9 @@
   fOngoing.addEventListener('change', syncOngoing);
 
   function openEditor(id) {
-    editingId = id || null;
-    var s = id ? data.sleeps.find(function (x) { return x.id === id; }) : null;
+    var s = id ? byId(id) : null;
+    if (s && s.deleted) s = null;
+    editingId = s ? s.id : null;
     var t = now();
     document.getElementById('edit-title').textContent = s ? 'Edit sleep' : 'Add a missed sleep';
     document.getElementById('f-delete').hidden = !s;
@@ -484,11 +576,12 @@
   document.getElementById('add-btn').addEventListener('click', function () { openEditor(null); });
   document.getElementById('f-cancel').addEventListener('click', function () { dlg.close(); });
   document.getElementById('f-delete').addEventListener('click', function () {
-    if (!editingId) return;
-    snapshot();
-    data.sleeps = data.sleeps.filter(function (x) { return x.id !== editingId; });
-    save(); dlg.close(); render();
-    showToast('Sleep deleted', true);
+    var s = editingId && byId(editingId);
+    if (!s) { dlg.close(); return; }
+    var before = clone(data.sleeps);
+    s.deleted = true;
+    dlg.close();
+    showToast('Sleep deleted', commit(before));
   });
 
   document.getElementById('edit-form').addEventListener('submit', function (ev) {
@@ -502,7 +595,7 @@
     if (start > t) { fError.textContent = 'The start time is in the future.'; return; }
     if (end != null && end > t) { fError.textContent = 'The wake-up time is in the future.'; return; }
     if (end != null && end <= start) { fError.textContent = 'Wake-up must be after falling asleep.'; return; }
-    var clash = data.sleeps.find(function (x) {
+    var clash = live().find(function (x) {
       if (x.id === editingId || x.twin !== twin) return false;
       var xe = x.end == null ? Infinity : x.end, e = end == null ? Infinity : end;
       return start < xe && x.start < e;
@@ -511,20 +604,164 @@
       fError.textContent = 'This overlaps another sleep for ' + twinName(twin) + ' (' + fmtTime(clash.start) + ' → ' + (clash.end == null ? 'now' : fmtTime(clash.end)) + ').';
       return;
     }
-    snapshot();
-    if (editingId) {
-      var s = data.sleeps.find(function (x) { return x.id === editingId; });
-      s.twin = twin; s.start = start; s.end = end;
-    } else {
-      data.sleeps.push({ id: uid(), twin: twin, start: start, end: end });
-    }
-    save(); dlg.close(); render();
-    showToast(editingId ? 'Sleep updated' : 'Sleep added', true);
+    var before = clone(data.sleeps);
+    var s = editingId && byId(editingId);
+    if (s && !s.deleted) { s.twin = twin; s.start = start; s.end = end; }
+    else data.sleeps.push({ id: uid(), twin: twin, start: start, end: end, updated: 0, deleted: false });
+    var wasEdit = !!s;
+    dlg.close();
+    showToast(wasEdit ? 'Sleep updated' : 'Sleep added', commit(before));
   });
+
+  // ---------- Shared log (Google Sheet) ----------
+  // Every change is sent to the sheet; every 10 seconds (while the app is open) we fetch
+  // what other phones changed. For each sleep the newest change wins.
+  var syncing = false, syncAgain = false, syncTimer = null, syncState = 'off';
+
+  function syncSoon() { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 300); }
+
+  function applyRemote(list) {
+    var index = {};
+    data.sleeps.forEach(function (s, i) { index[s.id] = i; });
+    list.forEach(function (r) {
+      if (!r || !r.id || typeof r.start !== 'number' || (r.twin !== 'luca' && r.twin !== 'leon')) return;
+      var rec = normalize(r), i = index[rec.id];
+      if (i == null) { index[rec.id] = data.sleeps.length; data.sleeps.push(rec); return; }
+      var mine = data.sleeps[i];
+      if (rec.updated > mine.updated || (rec.updated === mine.updated && !sync.dirty[mine.id])) data.sleeps[i] = rec;
+    });
+  }
+
+  // If both phones started a sleep for the same twin before seeing each other's tap,
+  // join the overlapping sleeps into one: earliest start, latest end (or still asleep).
+  function joinOverlaps() {
+    var joined = false;
+    TWINS.forEach(function (tw) {
+      var list = sleepsOf(tw.id).sort(function (a, b) { return a.start - b.start || (a.id < b.id ? -1 : 1); });
+      for (var i = 0; i < list.length; i++) {
+        var keep = list[i];
+        if (keep.deleted) continue;
+        for (var j = i + 1; j < list.length; j++) {
+          var other = list[j];
+          if (other.deleted) continue;
+          var keepEnd = keep.end == null ? Infinity : keep.end;
+          if (other.start >= keepEnd) break;
+          keep.end = (keep.end == null || other.end == null) ? null : Math.max(keep.end, other.end);
+          other.deleted = true;
+          joined = true;
+        }
+      }
+    });
+    return joined;
+  }
+
+  function withSince(url, since) { return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'since=' + since; }
+  function getJSON(res) {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json().then(function (j) { if (!j || !j.ok) throw new Error((j && j.error) || 'bad reply'); return j; });
+  }
+
+  function syncNow() {
+    if (!sync.url) { syncState = 'off'; renderSync(); return Promise.resolve(); }
+    if (syncing) { syncAgain = true; return Promise.resolve(); }
+    syncing = true;
+    if (syncState !== 'ok') { syncState = 'busy'; renderSync(); }
+    var url = sync.url;
+    var sent = data.sleeps.filter(function (s) { return sync.dirty[s.id]; }).map(clone);
+    var push = sent.length
+      ? fetch(url, { method: 'POST', body: JSON.stringify({ sleeps: sent }) }).then(getJSON).then(function () {
+          sent.forEach(function (p) { var cur = byId(p.id); if (cur && cur.updated === p.updated) delete sync.dirty[p.id]; });
+        })
+      : Promise.resolve();
+    return push
+      .then(function () { return fetch(withSince(url, sync.lastServerTime), { cache: 'no-store' }).then(getJSON); })
+      .then(function (j) {
+        if (sync.url !== url) return; // disconnected meanwhile
+        applyRemote(j.sleeps || []);
+        sync.lastServerTime = j.serverTime || sync.lastServerTime;
+        var before = clone(data.sleeps);
+        if (joinOverlaps()) { markChanges(before); syncAgain = true; }
+        sync.lastOk = now();
+        syncState = 'ok';
+        save(); render();
+      })
+      .catch(function () { syncState = navigator.onLine === false ? 'offline' : 'error'; renderSync(); })
+      .then(function () {
+        syncing = false;
+        if (syncAgain) { syncAgain = false; syncSoon(); }
+      });
+  }
+
+  function renderSync() {
+    var pill = document.getElementById('sync-pill'), text = document.getElementById('sync-text');
+    var pending = Object.keys(sync.dirty).length;
+    var state = sync.url ? syncState : 'off';
+    pill.dataset.state = state;
+    if (!sync.url) text.textContent = 'This phone only';
+    else if (state === 'offline') text.textContent = 'Offline · ' + (pending ? pending + ' change' + (pending === 1 ? '' : 's') + ' will sync later' : 'will sync when back online');
+    else if (state === 'error') text.textContent = "Can't reach the shared log" + (pending ? ' · ' + pending + ' waiting' : '') + ' · retrying';
+    else if (state === 'busy' && !sync.lastOk) text.textContent = 'Connecting to shared log…';
+    else text.textContent = 'Shared log · updated ' + (sync.lastOk ? fmtTime(sync.lastOk) : '…');
+    document.getElementById('share-off').hidden = !!sync.url;
+    document.getElementById('share-on').hidden = !sync.url;
+  }
+
+  function connect(url) {
+    var err = document.getElementById('connect-error');
+    err.textContent = '';
+    url = (url || '').trim();
+    if (!/^(https:\/\/|http:\/\/localhost[:/])/.test(url)) { err.textContent = 'Paste the full web-app address. It starts with https://script.google.com/'; return Promise.resolve(false); }
+    var btn = document.getElementById('connect-btn');
+    btn.disabled = true; btn.textContent = 'Checking…';
+    return fetch(withSince(url, now() + DAY), { cache: 'no-store' }).then(getJSON).then(function () {
+      var count = live().length;
+      if (count && !confirm('Connect to the shared log?\n\nThe ' + count + ' sleeps already on this phone will be replaced by the shared log. (Tap Cancel and use "Download backup" first if you want to keep them.)')) return false;
+      data = { version: 2, sleeps: [] };
+      sync = { url: url, lastServerTime: 0, dirty: {}, lastOk: 0 };
+      syncState = 'busy';
+      save(); render(); syncNow();
+      return true;
+    }).catch(function () {
+      err.textContent = "That address didn't work. Check you copied the whole Web app URL (ending in /exec) and that access is set to \"Anyone\".";
+      return false;
+    }).then(function (ok) { btn.disabled = false; btn.textContent = 'Connect'; return ok; });
+  }
+
+  document.getElementById('connect-btn').addEventListener('click', function () {
+    connect(document.getElementById('sync-url').value);
+  });
+  document.getElementById('disconnect-btn').addEventListener('click', function () {
+    if (!confirm('Stop sharing on this phone? The log stays on this phone but will no longer update from the other phone.')) return;
+    sync = { url: '', lastServerTime: 0, dirty: {}, lastOk: 0 };
+    syncState = 'off';
+    save(); render();
+  });
+  document.getElementById('invite-btn').addEventListener('click', function () {
+    var link = location.origin + location.pathname + '#join=' + encodeURIComponent(sync.url);
+    var text = 'Open this in Chrome to share the twins\' sleep log:';
+    if (navigator.share) { navigator.share({ title: 'Twin Sleep Log', text: text, url: link }).catch(function () {}); return; }
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link).then(function () { showToast('Invite link copied. Paste it in a message.', null); }, function () { prompt('Copy this invite link:', link); });
+      return;
+    }
+    prompt('Copy this invite link:', link);
+  });
+
+  // Opened from an invite link: #join=<address of the shared log>
+  function checkInvite() {
+    var m = /[#&]join=([^&]+)/.exec(location.hash);
+    if (!m) return;
+    var url = decodeURIComponent(m[1]);
+    history.replaceState(null, '', location.pathname);
+    if (sync.url === url) { showToast('This phone is already connected.', null); return; }
+    if (!confirm('Join the shared sleep log?\n\nThis phone will show the same log as the phone that sent the invite.')) return;
+    document.getElementById('sync-url').value = url;
+    connect(url).then(function (ok) { if (ok) showToast('Connected to the shared log', null); });
+  }
 
   // ---------- Backup ----------
   document.getElementById('export-btn').addEventListener('click', function () {
-    var blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+    var blob = new Blob([JSON.stringify({ version: 2, sleeps: live() }, null, 1)], { type: 'application/json' });
     var a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'twin-sleep-backup-' + toInput(now()).slice(0, 10) + '.json';
@@ -543,11 +780,19 @@
         if (!d || !Array.isArray(d.sleeps)) throw new Error('bad');
         var ok = d.sleeps.every(function (s) { return s && typeof s.start === 'number' && (s.end == null || typeof s.end === 'number') && (s.twin === 'luca' || s.twin === 'leon'); });
         if (!ok) throw new Error('bad');
-        if (!confirm('Replace the log on this phone with the backup (' + d.sleeps.length + ' sleeps)?')) return;
-        snapshot();
-        data = { version: 1, sleeps: d.sleeps.map(function (s) { return { id: s.id || uid(), twin: s.twin, start: s.start, end: s.end == null ? null : s.end }; }) };
-        save(); render();
-        showToast('Backup restored', true);
+        var restored = d.sleeps.filter(function (s) { return !s.deleted; });
+        var where = sync.url ? 'the shared log (on every connected phone)' : 'the log on this phone';
+        if (!confirm('Replace ' + where + ' with the backup (' + restored.length + ' sleeps)?')) return;
+        var before = clone(data.sleeps);
+        var keepIds = {};
+        restored.forEach(function (s) { keepIds[s.id] = true; });
+        data.sleeps.forEach(function (s) { if (!keepIds[s.id]) s.deleted = true; });
+        restored.forEach(function (s) {
+          var cur = byId(String(s.id || ''));
+          if (cur) { cur.twin = s.twin; cur.start = s.start; cur.end = s.end == null ? null : s.end; cur.deleted = false; }
+          else data.sleeps.push({ id: s.id ? String(s.id) : uid(), twin: s.twin, start: s.start, end: s.end == null ? null : s.end, updated: 0, deleted: false });
+        });
+        showToast('Backup restored', commit(before));
       } catch (e) {
         alert('That file is not a Twin Sleep Log backup.');
       }
@@ -556,11 +801,23 @@
     r.readAsText(f);
   });
 
-  // ---------- Keep timers fresh ----------
+  // ---------- Keep timers and the shared log fresh ----------
   render();
-  setInterval(function () { if (!dlg.open) render(); }, 15000);
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && !dlg.open) render(); });
-  window.addEventListener('storage', function (e) { if (e.key === STORE_KEY) { data = load(); render(); } });
+  checkInvite();
+  if (sync.url) syncNow();
+  setInterval(function () {
+    if (document.hidden) return;
+    if (sync.url) syncNow(); else render();
+  }, POLL_MS);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) return;
+    render();
+    if (sync.url) syncNow();
+  });
+  window.addEventListener('online', function () { if (sync.url) syncNow(); });
+  window.addEventListener('storage', function (e) {
+    if (e.key === STORE_KEY || e.key === SYNC_KEY) { data = load(); sync = loadSync(); render(); }
+  });
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(function () {});
