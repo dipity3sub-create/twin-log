@@ -1,7 +1,7 @@
 // Lets the app open without internet. When online, the page itself is always
 // fetched fresh (so updates arrive straight away); the saved copy is used if
 // the network is slow or missing.
-const CACHE = 'twin-sleep-v2';
+const CACHE = 'twin-sleep-v3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {

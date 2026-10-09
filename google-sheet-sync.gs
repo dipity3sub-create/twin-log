@@ -10,8 +10,8 @@
  */
 
 var TAB = 'Sleeps';
-var HEADERS = ['Twin', 'Fell asleep', 'Woke up', 'Minutes', 'id', 'updated', 'deleted', 'serverTime'];
-var COL = { twin: 0, start: 1, end: 2, minutes: 3, id: 4, updated: 5, deleted: 6, serverTime: 7 };
+var HEADERS = ['Twin', 'Fell asleep', 'Woke up', 'Minutes', 'id', 'twin', 'updated', 'deleted', 'serverTime'];
+var COL = { name: 0, start: 1, end: 2, minutes: 3, id: 4, twin: 5, updated: 6, deleted: 7, serverTime: 8 };
 
 function tab_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -33,7 +33,7 @@ function rows_(sh) {
 function toSleep_(r) {
   return {
     id: String(r[COL.id]),
-    twin: String(r[COL.twin]).toLowerCase(),
+    twin: String(r[COL.twin]),
     start: r[COL.start] instanceof Date ? r[COL.start].getTime() : null,
     end: r[COL.end] instanceof Date ? r[COL.end].getTime() : null,
     updated: Number(r[COL.updated]) || 0,
@@ -44,11 +44,12 @@ function toSleep_(r) {
 
 function toRow_(s, serverTime) {
   return [
-    s.twin === 'luca' ? 'Luca' : 'Leon',
+    String(s.name || (s.twin === 'a' ? 'Twin A' : 'Twin B')).slice(0, 40),
     new Date(s.start),
     s.end == null ? '' : new Date(s.end),
     s.end == null ? '' : Math.round((s.end - s.start) / 60000),
     String(s.id),
+    s.twin,
     Number(s.updated) || 0,
     !!s.deleted,
     serverTime
@@ -90,7 +91,7 @@ function doPost(e) {
     var serverTime = Date.now();
     var appends = [];
     (body.sleeps || []).forEach(function (s) {
-      if (!s || !s.id || (s.twin !== 'luca' && s.twin !== 'leon') || typeof s.start !== 'number') return;
+      if (!s || !s.id || (s.twin !== 'a' && s.twin !== 'b') || typeof s.start !== 'number') return;
       if (s.end != null && typeof s.end !== 'number') return;
       var i = index[String(s.id)];
       if (i == null) {

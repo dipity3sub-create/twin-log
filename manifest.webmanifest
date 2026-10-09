@@ -1,7 +1,7 @@
 {
   "name": "Twin Sleep Log",
   "short_name": "Twin Sleep",
-  "description": "Sleep log for Luca and Leon. Data stays on this phone.",
+  "description": "Sleep log for twins. Data stays on this phone.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

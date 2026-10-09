@@ -1,6 +1,6 @@
 # Twin Sleep Log
 
-A simple sleep log for Luca and Leon that runs in your phone's browser.
+A simple sleep log for twins that runs in your phone's browser.
 Out of the box, everything is saved **only on your phone**. You can also connect a
 Google Sheet so two phones share one log (see below).
 
@@ -10,6 +10,8 @@ Google Sheet so two phones share one log (see below).
 - A live timer for each twin: "Awake for 1h 20m" (since they last woke up) or "Asleep for 35m".
 - **Today's log** (midnight to midnight). Tap any entry to fix its times or delete it.
 - **+ Add a missed sleep** for when you forgot to tap.
+- The first time you open it, it asks for the twins' names. They're saved only on the phone
+  (and passed along in the invite link), never in this code. Change them under **Names**.
 - **Undo** appears for 8 seconds after every tap, in case you pressed by mistake.
 - **Last 7 days**: a bar for each twin per day (out of 24 hours) and a daily average.
 - **Download backup / Restore from backup**, so you can keep a copy of the log.
