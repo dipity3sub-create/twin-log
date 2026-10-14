@@ -451,7 +451,7 @@
           audio: { echoCancellation: true, noiseSuppression: true },
         });
       } catch {
-        alert(t("micError"));
+        els.recTimer.textContent = t("micError");
         return;
       }
       const story = state.story;
@@ -515,7 +515,13 @@
       del.className = "del";
       del.textContent = t("del");
       del.addEventListener("click", async () => {
-        if (!confirm(t("confirmDel"))) return;
+        // Two-step delete: first tap asks, second tap deletes.
+        if (!del.dataset.armed) {
+          del.dataset.armed = "1";
+          del.textContent = t("confirmDel");
+          setTimeout(() => { delete del.dataset.armed; del.textContent = t("del"); }, 4000);
+          return;
+        }
         player.stop();
         await db.remove(rec.id);
         state.recordings = state.recordings.filter((r) => r.id !== rec.id);
