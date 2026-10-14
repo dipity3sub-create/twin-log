@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bedtime Stories</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1 id="site-title">Bedtime Stories</h1>
+    <p id="site-subtitle" class="subtitle"></p>
+    <nav class="lang-switch" aria-label="Language">
+      <button type="button" data-lang="en" lang="en">English</button>
+      <button type="button" data-lang="ko" lang="ko">한국어</button>
+      <button type="button" data-lang="zh" lang="zh">中文</button>
+    </nav>
+  </header>
+
+  <main>
+    <ul id="story-list" class="story-list"></ul>
+  </main>
+
+  <dialog id="story-dialog" class="story-dialog">
+    <div class="dialog-inner">
+      <button type="button" class="close-btn" id="close-btn" aria-label="Close">✕</button>
+      <nav class="lang-switch small" aria-label="Language">
+        <button type="button" data-lang="en" lang="en">EN</button>
+        <button type="button" data-lang="ko" lang="ko">한국어</button>
+        <button type="button" data-lang="zh" lang="zh">中文</button>
+      </nav>
+      <h2 id="story-title"></h2>
+
+      <section class="player" aria-label="Player">
+        <div class="player-row">
+          <button type="button" id="play-btn" class="play-btn">▶</button>
+          <button type="button" id="stop-btn" class="stop-btn" aria-label="Stop">■</button>
+          <label class="field">
+            <span id="narrator-label">Voice</span>
+            <select id="narrator-select"></select>
+          </label>
+        </div>
+        <div class="player-row" id="rate-row">
+          <label class="field rate">
+            <span id="rate-label">Speed</span>
+            <input type="range" id="rate-input" min="0.5" max="1.2" step="0.05" value="0.85">
+          </label>
+        </div>
+        <audio id="audio-player" preload="none"></audio>
+        <p id="voice-warning" class="warning" hidden></p>
+      </section>
+
+      <article id="story-text" class="story-text"></article>
+
+      <details class="recorder" id="recorder">
+        <summary id="rec-summary">🎙 Record your own voice</summary>
+        <p id="rec-help" class="help"></p>
+        <div class="player-row">
+          <label class="field">
+            <span id="rec-name-label">Narrator name</span>
+            <input type="text" id="rec-name" maxlength="30" placeholder="Mom">
+          </label>
+          <button type="button" id="rec-btn" class="rec-btn">● Record</button>
+          <span id="rec-timer" class="rec-timer" aria-live="polite"></span>
+        </div>
+        <ul id="rec-list" class="rec-list"></ul>
+      </details>
+    </div>
+  </dialog>
+
+  <script src="stories.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

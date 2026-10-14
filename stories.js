@@ -1,0 +1,198 @@
+// Story library. Each story has a title and paragraphs in every language.
+// Paragraphs are read one at a time so the current one can be highlighted.
+//
+// Optional: a story can ship with professionally recorded narration by adding
+//   audio: { en: "audio/en/sleepy-moon.mp3", ko: "...", zh: "..." }
+// Those files then appear as a narrator choice for everyone who visits.
+window.STORIES = [
+  {
+    id: "sleepy-moon",
+    emoji: "🌙",
+    title: {
+      en: "The Sleepy Moon",
+      ko: "졸린 달님",
+      zh: "困困的月亮",
+    },
+    text: {
+      en: [
+        "High above the quiet town, the Moon gave a big, round yawn.",
+        "\"Time for everyone to rest,\" she whispered, and she sent down a soft, silver light.",
+        "The light touched the rooftops. It touched the trees. It touched the little cat curled up by the door.",
+        "\"Goodnight, rooftops. Goodnight, trees. Goodnight, little cat,\" said the Moon.",
+        "Then the light came through your window and touched your pillow, gentle as a feather.",
+        "\"Goodnight, little one,\" the Moon whispered. \"I will watch over you until morning.\"",
+        "And the whole town fell asleep, warm and safe, under the sleepy Moon.",
+      ],
+      ko: [
+        "조용한 마을 높은 하늘 위에서 달님이 크게 하품을 했어요.",
+        "\"이제 모두 쉴 시간이야.\" 달님은 속삭이며 부드러운 은빛을 내려보냈어요.",
+        "은빛은 지붕을 어루만졌어요. 나무도 어루만졌어요. 문 옆에 웅크린 아기 고양이도 어루만졌어요.",
+        "\"잘 자, 지붕아. 잘 자, 나무야. 잘 자, 아기 고양이야.\" 달님이 말했어요.",
+        "그리고 은빛은 창문으로 들어와 깃털처럼 살며시 우리 아기 베개를 어루만졌어요.",
+        "\"잘 자, 우리 아가.\" 달님이 속삭였어요. \"아침이 올 때까지 내가 지켜 줄게.\"",
+        "그렇게 온 마을이 졸린 달님 아래에서 따뜻하고 포근하게 잠이 들었답니다.",
+      ],
+      zh: [
+        "在安静的小镇上空，月亮打了一个大大的、圆圆的哈欠。",
+        "“大家该休息啦。”她轻轻地说，洒下柔柔的银光。",
+        "银光摸了摸屋顶，摸了摸大树，又摸了摸蜷在门边的小猫。",
+        "“晚安，屋顶。晚安，大树。晚安，小猫。”月亮说。",
+        "然后，银光从窗户溜进来，像羽毛一样轻轻地落在你的枕头上。",
+        "“晚安，小宝贝。”月亮悄悄地说，“我会一直守护你，直到天亮。”",
+        "整个小镇都在困困的月亮下面，暖暖地、安安心心地睡着了。",
+      ],
+    },
+  },
+  {
+    id: "little-bear",
+    emoji: "🐻",
+    title: {
+      en: "Little Bear's Lullaby",
+      ko: "아기 곰의 자장가",
+      zh: "小熊的摇篮曲",
+    },
+    text: {
+      en: [
+        "Deep in the forest, Little Bear could not fall asleep.",
+        "\"Mama,\" he said, \"the night is so big, and I am so small.\"",
+        "Mama Bear pulled him close and began to hum a slow, sleepy song.",
+        "\"Hush, little bear, the river is singing. Hush, little bear, the wind is swinging.\"",
+        "Little Bear listened. He heard the river. He heard the wind in the pine trees.",
+        "The night did not feel so big anymore. It felt like a warm, dark blanket.",
+        "Little Bear's eyes grew heavy, and before the song was over, he was fast asleep.",
+      ],
+      ko: [
+        "깊은 숲속에서 아기 곰은 잠이 오지 않았어요.",
+        "\"엄마, 밤은 너무 크고 나는 너무 작아요.\" 아기 곰이 말했어요.",
+        "엄마 곰은 아기 곰을 꼭 안아 주고 느리고 졸린 노래를 흥얼거렸어요.",
+        "\"쉬, 아기 곰아, 시냇물이 노래해. 쉬, 아기 곰아, 바람이 그네를 타.\"",
+        "아기 곰은 귀를 기울였어요. 시냇물 소리가 들렸어요. 소나무 사이로 부는 바람 소리도 들렸어요.",
+        "이제 밤이 그렇게 크게 느껴지지 않았어요. 따뜻하고 어두운 이불 같았어요.",
+        "아기 곰의 눈꺼풀이 점점 무거워졌고, 노래가 끝나기도 전에 새근새근 잠이 들었답니다.",
+      ],
+      zh: [
+        "在森林深处，小熊怎么也睡不着。",
+        "“妈妈，”他说，“夜晚好大好大，我好小好小。”",
+        "熊妈妈把他搂进怀里，轻轻哼起一首慢慢的、困困的歌。",
+        "“嘘，小熊乖，小河在唱歌。嘘，小熊乖，风儿在荡秋千。”",
+        "小熊竖起耳朵听。他听见了小河，也听见了松树间的风声。",
+        "夜晚好像没那么大了，它像一条暖暖的、黑黑的被子。",
+        "小熊的眼皮越来越沉，歌还没唱完，他就呼呼地睡着了。",
+      ],
+    },
+  },
+  {
+    id: "little-star",
+    emoji: "⭐",
+    title: {
+      en: "The Star Who Couldn't Sleep",
+      ko: "잠 못 드는 아기 별",
+      zh: "睡不着的小星星",
+    },
+    text: {
+      en: [
+        "Every morning, when the sun came up, the stars closed their eyes and went to sleep.",
+        "But one little star was wide awake. \"I want to see the day!\" she said.",
+        "She peeked at the bright blue sky. She peeked at the busy birds and the children playing.",
+        "\"Daytime is wonderful,\" she said, \"but it is very, very loud.\"",
+        "Her twinkle grew dim, and her eyes grew tired.",
+        "\"Even stars need rest,\" said the kind old Sun. \"Sleep now, and you will shine brighter tonight.\"",
+        "So the little star snuggled into a soft cloud and slept all day long. And that night, she was the brightest star in the sky.",
+      ],
+      ko: [
+        "매일 아침 해님이 떠오르면 별들은 눈을 감고 잠이 들어요.",
+        "그런데 아기 별 하나는 말똥말똥 깨어 있었어요. \"나는 낮이 보고 싶어!\"",
+        "아기 별은 파란 하늘을 살짝 엿보았어요. 바쁘게 날아다니는 새들과 뛰노는 아이들도 엿보았어요.",
+        "\"낮은 정말 멋지다. 그런데 너무너무 시끄러워.\" 아기 별이 말했어요.",
+        "아기 별의 반짝임이 희미해지고 눈이 스르르 감기기 시작했어요.",
+        "\"별도 쉬어야 한단다.\" 다정한 해님이 말했어요. \"지금 푹 자면 오늘 밤 더 밝게 빛날 거야.\"",
+        "그래서 아기 별은 폭신한 구름 속에 쏙 들어가 하루 종일 잤어요. 그리고 그날 밤, 하늘에서 가장 밝게 빛났답니다.",
+      ],
+      zh: [
+        "每天早上太阳升起的时候，星星们就闭上眼睛睡觉了。",
+        "可是有一颗小星星睁着大眼睛。“我想看看白天！”她说。",
+        "她偷偷看了看蓝蓝的天空，又偷偷看了看忙碌的小鸟和玩耍的孩子们。",
+        "“白天真好玩，”她说，“可是太吵太吵了。”",
+        "她的光芒越来越暗，眼睛也越来越累。",
+        "“星星也需要休息呀，”慈祥的太阳公公说，“现在好好睡一觉，今晚你会更亮。”",
+        "于是小星星钻进一朵软软的云里，睡了一整天。那天晚上，她成了天空中最亮的星星。",
+      ],
+    },
+  },
+  {
+    id: "bunny-walk",
+    emoji: "🐰",
+    title: {
+      en: "Bunny's Goodnight Walk",
+      ko: "아기 토끼의 잘 자 산책",
+      zh: "小兔子的晚安散步",
+    },
+    text: {
+      en: [
+        "Before bed, Little Bunny went for a goodnight walk.",
+        "\"Goodnight, flowers,\" she said. The flowers folded their petals and nodded.",
+        "\"Goodnight, ducks,\" she said. The ducks tucked their heads under their wings.",
+        "\"Goodnight, fireflies,\" she said. The fireflies blinked their tiny lights, one, two, three.",
+        "Little Bunny hopped home, slower and slower. Hop... hop... hop.",
+        "She climbed into her cozy burrow, and Papa Bunny tucked her in.",
+        "\"Goodnight, Papa,\" she yawned. \"Goodnight, world.\" And she closed her eyes.",
+      ],
+      ko: [
+        "잠자기 전에 아기 토끼는 잘 자 산책을 나갔어요.",
+        "\"잘 자, 꽃들아.\" 아기 토끼가 말했어요. 꽃들은 꽃잎을 오므리고 고개를 끄덕였어요.",
+        "\"잘 자, 오리들아.\" 오리들은 날개 밑에 머리를 쏙 묻었어요.",
+        "\"잘 자, 반딧불이들아.\" 반딧불이들은 작은 불빛을 깜빡였어요. 하나, 둘, 셋.",
+        "아기 토끼는 점점 천천히 집으로 깡충깡충 돌아왔어요. 깡충... 깡충... 깡충.",
+        "아기 토끼가 포근한 굴 속으로 들어가자 아빠 토끼가 이불을 덮어 주었어요.",
+        "\"잘 자요, 아빠.\" 아기 토끼가 하품을 했어요. \"잘 자, 세상아.\" 그리고 스르르 눈을 감았답니다.",
+      ],
+      zh: [
+        "睡觉前，小兔子出去散了一个晚安步。",
+        "“晚安，花儿们。”她说。花儿们合上花瓣，点了点头。",
+        "“晚安，鸭子们。”鸭子们把头藏进了翅膀底下。",
+        "“晚安，萤火虫们。”萤火虫们眨了眨小小的灯，一、二、三。",
+        "小兔子蹦蹦跳跳地回家，越跳越慢。蹦……蹦……蹦。",
+        "她钻进暖和的小洞，兔爸爸给她盖好了被子。",
+        "“晚安，爸爸。”她打了个哈欠，“晚安，世界。”然后，她闭上了眼睛。",
+      ],
+    },
+  },
+  {
+    id: "little-cloud",
+    emoji: "☁️",
+    title: {
+      en: "The Little Cloud's Blanket",
+      ko: "작은 구름의 이불",
+      zh: "小云朵的被子",
+    },
+    text: {
+      en: [
+        "A little cloud floated across the evening sky, looking for a place to sleep.",
+        "\"The mountain is too pointy,\" said the little cloud. \"The sea is too splashy.\"",
+        "Then she saw a wide, quiet meadow, all green and soft.",
+        "The little cloud floated down, down, down, and spread herself over the grass like a blanket.",
+        "The grass felt cozy. The crickets sang softly. The stars came out one by one.",
+        "In the morning, everyone called it fog. But we know the truth.",
+        "It was just a little cloud, sleeping peacefully, wrapped around the world. Goodnight, little cloud.",
+      ],
+      ko: [
+        "작은 구름이 저녁 하늘을 둥둥 떠다니며 잠잘 곳을 찾고 있었어요.",
+        "\"산은 너무 뾰족해.\" 작은 구름이 말했어요. \"바다는 너무 철썩철썩해.\"",
+        "그때 넓고 조용한 풀밭이 보였어요. 온통 초록빛에 폭신폭신했어요.",
+        "작은 구름은 아래로, 아래로, 아래로 내려와 이불처럼 풀밭 위에 살포시 몸을 펼쳤어요.",
+        "풀밭은 포근했어요. 귀뚜라미가 작게 노래했어요. 별들이 하나둘 떠올랐어요.",
+        "아침이 되자 사람들은 그것을 안개라고 불렀어요. 하지만 우리는 진짜를 알지요.",
+        "그건 바로 세상을 포옥 감싸 안고 새근새근 잠든 작은 구름이었답니다. 잘 자, 작은 구름아.",
+      ],
+      zh: [
+        "一朵小云飘过傍晚的天空，正在找一个睡觉的地方。",
+        "“高山太尖啦，”小云朵说，“大海太闹啦。”",
+        "这时，她看见一片又宽又安静的草地，绿绿的，软软的。",
+        "小云朵往下飘呀，飘呀，飘呀，像一条被子一样轻轻地铺在草地上。",
+        "草地暖暖的。蟋蟀轻轻地唱歌。星星一颗一颗地出来了。",
+        "第二天早上，大家都说那是雾。可是我们知道真相。",
+        "那是一朵小云，抱着整个世界，安安静静地睡着了。晚安，小云朵。",
+      ],
+    },
+  },
+];
